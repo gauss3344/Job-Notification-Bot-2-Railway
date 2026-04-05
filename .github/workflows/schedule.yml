@@ -3,7 +3,7 @@ name: Railway Scheduler
 on:
   workflow_dispatch:
   schedule:
-    - cron: '15 20 * * *'  # Pause
+    - cron: '17 20 * * *'  # Pause
     - cron: '0 2 * * *'    # Resume
 
 jobs:
