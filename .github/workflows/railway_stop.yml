@@ -1,0 +1,26 @@
+name: Railway Auto Stop
+
+on:
+  schedule:
+    - cron: '25 13 * * *' 
+  workflow_dispatch:      # ম্যানুয়ালি স্টপ করার বাটন
+
+jobs:
+  stop_service:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Requests
+        run: pip install requests
+
+      - name: Run Stop Script
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: python stop_railway.py

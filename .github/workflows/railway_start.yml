@@ -1,0 +1,26 @@
+name: Railway Auto Start
+
+on:
+  schedule:
+    - cron: '30 20 * * *' 
+  workflow_dispatch:      # ম্যানুয়ালি স্টার্ট করার বাটন
+
+jobs:
+  start_service:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Requests
+        run: pip install requests
+
+      - name: Run Start Script
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: python start_railway.py
