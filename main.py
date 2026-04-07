@@ -24,6 +24,7 @@ from helpers_mysql import (
 # === Flask App ===
 app = Flask(__name__)
 last_check_time = None
+bot_start_time = datetime.now(pytz.utc)  # বট রান হওয়ার সময়টি এখানে সেভ হবে
 
 @app.route('/')
 def home():
@@ -31,12 +32,22 @@ def home():
 
 @app.route('/last-check')
 def show_last_check():
-    global last_check_time
+    global last_check_time, bot_start_time
+    dhaka_tz = pytz.timezone('Asia/Dhaka')
+    
+    # বটের স্টার্ট টাইম (ঢাকা টাইম অনুযায়ী)
+    start_time_local = bot_start_time.astimezone(dhaka_tz)
+    start_str = start_time_local.strftime('%Y-%m-%d %H:%M:%S')
+    
+    response_html = f"🚀 <b>Bot Started At:</b> {start_str} (Asia/Dhaka)<br>"
+    
     if last_check_time:
-        dhaka_tz = pytz.timezone('Asia/Dhaka')
         local_time = last_check_time.astimezone(dhaka_tz)
-        return f"🕒 Last check: {local_time.strftime('%Y-%m-%d %H:%M:%S')} (Asia/Dhaka)"
-    return "❌ No check performed yet."
+        response_html += f"🕒 <b>Last Check At:</b> {local_time.strftime('%Y-%m-%d %H:%M:%S')} (Asia/Dhaka)"
+    else:
+        response_html += "❌ <b>Last Check:</b> No check performed yet."
+        
+    return response_html
 
 @app.route('/clear-sent-notices')
 def clear_sent_notices_api():
@@ -56,7 +67,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 
 KEYWORDS = [
     "recruitment", "job", "নিয়োগ বিজ্ঞপ্তি", "career", "advertisement",
-    "নিয়োগ", "শূন্যপদ", "শূন্য পদ", "job circular", "vacancy",
+    "নিয়োগ", "শূন্যপদ", "শূন্য পদ", "job circular", "vacancy",
     "appointment", "opportunity"
 ]
 
@@ -72,8 +83,6 @@ def is_relevant(text: str) -> bool:
         logging.warning(f"Keyword match error: {e}")
         return False
 
-
-# ✅🔥 UPDATED FUNCTION (MAIN FIX)
 def fetch_site_data(site: Dict[str, Any]) -> List[Tuple[str, str]]:
     notices = []
     site_name = site.get("name", "Unknown Site")
@@ -89,35 +98,26 @@ def fetch_site_data(site: Dict[str, Any]) -> List[Tuple[str, str]]:
         if selenium_enabled:
             driver = get_webdriver()
             driver.get(site_url)
-
             WebDriverWait(driver, wait_time).until(
                 EC.presence_of_element_located((By.CSS_SELECTOR, "table tbody tr"))
             )
-
             soup = BeautifulSoup(driver.page_source, "html.parser")
-
         else:
             response = requests.get(site_url, verify=False, timeout=20, headers=HEADERS)
             response.raise_for_status()
             soup = BeautifulSoup(response.text, "html.parser")
 
-        # ✅ IMPORTANT: full table row
         rows = soup.select("table tbody tr")
-
         if not rows:
             logging.warning(f"No rows found for {site_name}")
             return []
 
         for row in rows:
             cols = row.find_all("td")
-
             if len(cols) < 3:
                 continue
-
-            # ✅ Title
+            
             title = cols[1].get_text(strip=True)
-
-            # ✅ PDF link
             pdf_link = ""
             a_tag = cols[2].find("a", href=True)
             if a_tag:
@@ -134,7 +134,6 @@ def fetch_site_data(site: Dict[str, Any]) -> List[Tuple[str, str]]:
 
     return notices
 
-
 def check_all_sites():
     global last_check_time
     last_check_time = datetime.now(pytz.utc)
@@ -142,7 +141,6 @@ def check_all_sites():
     print(f"\n🕒 Checking all sites at {last_check_time.strftime('%Y-%m-%d %H:%M:%S')} UTC")
 
     config_path = "config.json"
-
     if not os.path.exists(config_path):
         logging.error(f"Config file not found: {config_path}")
         return
@@ -163,7 +161,6 @@ def check_all_sites():
             continue
 
         notices = fetch_site_data(site)
-
         if not notices:
             logging.info(f"No relevant notices for {site_name}")
             continue
@@ -181,11 +178,8 @@ def check_all_sites():
             continue
 
         new_notices.reverse()
-
         for text, link, notice_hash in new_notices:
-            # ✅ সুন্দর ফরম্যাট
             msg = f"📢 *{site_name}*\n\n📝 {text}"
-
             if link:
                 msg += f"\n\n📥 [PDF Download]({link})"
             else:
@@ -193,9 +187,7 @@ def check_all_sites():
 
             send_telegram_message(msg)
             add_sent_notice(site_id, notice_hash)
-
             logging.info(f"Sent Telegram message for {site_name}: {text}")
-
 
 # === Scheduler ===
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -204,6 +196,7 @@ scheduler = BackgroundScheduler(timezone=pytz.timezone("Asia/Dhaka"))
 scheduler.add_job(check_all_sites, 'interval', minutes=60)
 scheduler.start()
 
+# প্রথম রান
 check_all_sites()
 
 while True:
