@@ -24,7 +24,7 @@ from helpers_mysql import (
 # === Flask App ===
 app = Flask(__name__)
 last_check_time = None
-bot_start_time = datetime.now(pytz.utc)  # বট রান হওয়ার সময়টি এখানে সেভ হবে
+bot_start_time = datetime.now(pytz.utc)  # বট রান হওয়ার সময়টি এখানে সেভ হবে
 
 @app.route('/')
 def home():
@@ -35,7 +35,7 @@ def show_last_check():
     global last_check_time, bot_start_time
     dhaka_tz = pytz.timezone('Asia/Dhaka')
     
-    # বটের স্টার্ট টাইম (ঢাকা টাইম অনুযায়ী)
+    # বটের স্টার্ট টাইম (ঢাকা টাইম অনুযায়ী)
     start_time_local = bot_start_time.astimezone(dhaka_tz)
     start_str = start_time_local.strftime('%Y-%m-%d %H:%M:%S')
     
@@ -71,13 +71,8 @@ KEYWORDS = [
     "appointment", "opportunity"
 ]
 
-# ✅ Updated Human-like Headers
 HEADERS = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-    'Accept-Language': 'en-US,en;q=0.9,bn;q=0.8',
-    'Referer': 'https://www.google.com/',
-    'Connection': 'keep-alive'
+    'User-Agent': 'Mozilla/5.0'
 }
 
 def is_relevant(text: str) -> bool:
@@ -188,7 +183,7 @@ def check_all_sites():
             if link:
                 msg += f"\n\n📥 [PDF Download]({link})"
             else:
-                msg += f"\n\n❌ PDF পাওয়া যায়নি"
+                msg += f"\n\n❌ PDF পাওয়া যায়নি"
 
             send_telegram_message(msg)
             add_sent_notice(site_id, notice_hash)
