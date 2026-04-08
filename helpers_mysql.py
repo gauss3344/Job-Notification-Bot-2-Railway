@@ -12,33 +12,36 @@ load_dotenv()
 
 # === MySQL Configuration ===
 MYSQL_HOST = os.getenv("MYSQL_HOST")
-MYSQL_PORT = int(os.getenv("MYSQL_PORT", 3306))  # রেলওয়েতে ডিফল্ট পোর্ট সাধারণত ৩৩০৬
 MYSQL_DB = os.getenv("MYSQL_DB")
 MYSQL_USER = os.getenv("MYSQL_USER")
 MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD")
 
-# ✅ ইউনিক হ্যাশ জেনারেটর
+
+# ✅ Unique Hash
 def get_notice_hash(text: str, link: str) -> str:
     return hashlib.sha256((text.strip() + link.strip()).encode()).hexdigest()
 
-# ✅ MySQL Connection (Railway হোস্টিং এর জন্য অপ্টিমাইজড)
+
+# ✅ MySQL Connection (Optimized)
 def get_connection():
     if not all([MYSQL_HOST, MYSQL_DB, MYSQL_USER, MYSQL_PASSWORD]):
         raise ValueError("MySQL database credentials are missing.")
 
     return pymysql.connect(
         host=MYSQL_HOST,
-        port=MYSQL_PORT,
         user=MYSQL_USER,
         password=MYSQL_PASSWORD,
         database=MYSQL_DB,
         charset='utf8mb4',
         cursorclass=pymysql.cursors.DictCursor,
-        connect_timeout=15,
+        connect_timeout=10,
+        read_timeout=10,
+        write_timeout=10,
         autocommit=True
     )
 
-# ✅ কানেকশন ফেইল করলে পুনরায় চেষ্টা করার ফাংশন
+
+# ✅ Retry Connection (VERY IMPORTANT 🔥)
 def get_connection_retry(retries=3, delay=2):
     for i in range(retries):
         try:
@@ -48,102 +51,102 @@ def get_connection_retry(retries=3, delay=2):
             time.sleep(delay)
     raise Exception("❌ Database connection failed after retries")
 
-# ✅ টেবিল তৈরি করা
+
+# ✅ Init Table
 def init_db():
-    try:
-        with get_connection_retry() as conn:
-            with conn.cursor() as cur:
-                cur.execute("""
-                    CREATE TABLE IF NOT EXISTS sent_notices (
-                        site VARCHAR(255),
-                        link_hash VARCHAR(64),
-                        PRIMARY KEY (site, link_hash)
-                    )
-                """)
-            conn.commit()
-            print("✅ Database initialized successfully on Railway.")
-    except Exception as e:
-        print(f"❌ init_db Error: {e}")
+    with get_connection_retry() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS sent_notices (
+                    site VARCHAR(255),
+                    link_hash VARCHAR(64),
+                    PRIMARY KEY (site, link_hash)
+                )
+            """)
+        conn.commit()
 
-# ✅ ডাটাবেজ থেকে হ্যাশ লোড করা
+
+# ✅ Load Sent Notices
 def load_sent_notice_hashes(site):
-    try:
-        with get_connection_retry() as conn:
-            with conn.cursor() as cur:
-                cur.execute(
-                    "SELECT link_hash FROM sent_notices WHERE site = %s",
-                    (site,)
-                )
-                return {row['link_hash'] for row in cur.fetchall()}
-    except Exception:
-        return set()
+    with get_connection_retry() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT link_hash FROM sent_notices WHERE site = %s",
+                (site,)
+            )
+            return {row['link_hash'] for row in cur.fetchall()}
 
-# ✅ নতুন নোটিশ ডাটাবেজে সেভ করা
+
+# ✅ Add Notice
 def add_sent_notice(site, link_hash):
-    try:
-        with get_connection_retry() as conn:
-            with conn.cursor() as cur:
-                cur.execute(
-                    "INSERT IGNORE INTO sent_notices (site, link_hash) VALUES (%s, %s)",
-                    (site, link_hash)
-                )
-            conn.commit()
-    except Exception as e:
-        print(f"❌ Error adding notice: {e}")
+    with get_connection_retry() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "INSERT IGNORE INTO sent_notices (site, link_hash) VALUES (%s, %s)",
+                (site, link_hash)
+            )
+        conn.commit()
 
-# ✅ ডাটাবেজ পরিষ্কার করা
+
+# ✅ Clear Table
 def clear_all_sent_notices():
-    try:
-        with get_connection_retry() as conn:
-            with conn.cursor() as cur:
-                cur.execute("DELETE FROM sent_notices")
-            conn.commit()
-    except Exception as e:
-        print(f"❌ Error clearing table: {e}")
+    with get_connection_retry() as conn:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM sent_notices")
+        conn.commit()
+
 
 # === Telegram Config ===
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
+
+if not BOT_TOKEN or not CHAT_ID:
+    raise ValueError("BOT_TOKEN or CHAT_ID environment variable not set.")
+
 bot = Bot(token=BOT_TOKEN)
 
-# ✅ মেসেজ ফরম্যাট ঠিক করা
+
+# ✅ Markdown Escape (FIXED)
 def escape_markdown(text: str) -> str:
     escape_chars = r'_*[]()~`>#+-=|{}.!'
     return re.sub(r'([%s])' % re.escape(escape_chars), r'\\\1', text)
 
-# ✅ টেলিগ্রামে মেসেজ পাঠানো
-def send_telegram_message(message: str):
+
+# ✅ Send Telegram Message (Improved)
+def send_telegram_message(message: str, markdown: bool = False):
     try:
-        # Markdown মোডে মেসেজ পাঠানো (লিংক সহ)
-        bot.send_message(
-            chat_id=CHAT_ID,
-            text=message,
-            parse_mode="Markdown",
-            disable_web_page_preview=True
-        )
+        if markdown:
+            safe_message = escape_markdown(message)
+            bot.send_message(
+                chat_id=CHAT_ID,
+                text=safe_message,
+                parse_mode="MarkdownV2",
+                disable_web_page_preview=True
+            )
+        else:
+            bot.send_message(
+                chat_id=CHAT_ID,
+                text=message,
+                disable_web_page_preview=True
+            )
     except Exception as e:
         print(f"❌ Telegram send error: {e}")
 
-# === Selenium WebDriver (Human-Like Mode) ===
+
+# === Selenium WebDriver ===
 def get_webdriver(headless=True) -> webdriver.Chrome:
     chrome_options = Options()
+
     if headless:
         chrome_options.add_argument("--headless=new")
-    
+
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
+    chrome_options.add_argument("--disable-gpu")
     chrome_options.add_argument("--disable-blink-features=AutomationControlled")
-    chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
-    chrome_options.add_experimental_option('useAutomationExtension', False)
-    
-    driver = webdriver.Chrome(options=chrome_options)
-    
-    # বট ডিটেকশন বাইপাস করতে জাভাস্ক্রিপ্ট রান করা
-    driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
-        "source": "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
-    })
-    
-    return driver
+
+    return webdriver.Chrome(options=chrome_options)
+
 
 def close_webdriver(driver):
     try:
