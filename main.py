@@ -70,9 +70,13 @@ KEYWORDS = [
     "নিয়োগ", "শূন্যপদ", "শূন্য পদ", "job circular", "vacancy",
     "appointment", "opportunity"
 ]
-
+# ✅ Updated Human-like Headers
 HEADERS = {
-    'User-Agent': 'Mozilla/5.0'
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+    'Accept-Language': 'en-US,en;q=0.9,bn;q=0.8',
+    'Referer': 'https://www.google.com/',
+    'Connection': 'keep-alive'
 }
 
 def is_relevant(text: str) -> bool:
